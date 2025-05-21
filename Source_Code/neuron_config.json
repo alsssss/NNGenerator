@@ -1,0 +1,8 @@
+{
+    "neuron": {
+        "name": "Michela_neuron",
+        "inputs": 4,
+        "activation": "threshold",
+        "bias": true
+    }
+}

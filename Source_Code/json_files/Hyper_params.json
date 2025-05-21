@@ -1,0 +1,6 @@
+{
+    "is_parallel": false,
+    "layers": 1,
+    "serialized_neurons": "max",
+    "weight_mode": "file"
+}

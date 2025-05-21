@@ -1,0 +1,20 @@
+{
+    "neuron1": {
+        "id": 1,
+        "inputs": 3,
+        "activation": "relu",
+        "bias_enable": true
+    },
+    "neuron2": {
+        "id": 2,
+        "inputs": 5,
+        "activation": "sigmoid",
+        "bias_enable": false
+        },
+    "neuron3": {
+        "id": 3,
+        "inputs": 2,
+        "activation": "linear",
+        "bias_enable": true
+    }
+}
