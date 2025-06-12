@@ -71,7 +71,7 @@ class NeuronModel:
                         lines.append(f"{indent}stages(0, {i}) <= resize(weight_matrix_{self.weight_matrix_idx}( weights_idx_{self.weight_matrix_idx}(start_weight + current_neuron) + {i} ), {self.n_dict['w_bitwidth']}) when inputs({self.data_width - i -1}) = '1' else (others => '0');")
 #                        lines.append(f"{indent}stages_next(0, {i}) <= resize(weight_matrix_{self.weight_matrix_idx}( start_weight + current_neuron )({i}), {self.n_dict['w_bitwidth']}) when inputs({self.data_width - i -1}) = '1' else (others => '0');")
                     else:
-                        lines.append(f"{indent}stages(0, {i}) <= weights({i}) when inputs({self.data_width - i -1}) = '1' else (others => '0');")  
+                        lines.append(f"{indent}stages(0, {i}) <= resize(first_regs({i}), {self.n_dict['w_bitwidth']}) when inputs({self.data_width - i -1}) = '1' else (others => '0');")  
             else:
                 if self.n_dict["handshake"] is True:
                     indent=""
@@ -79,14 +79,14 @@ class NeuronModel:
                         if self.n_dict["weight_file"] is True:
                             lines.append(f"{indent}stages(0, {i}) <= resize(weights( start_weight + {i} ), {self.n_dict['w_bitwidth']}) when inputs({self.data_width - i -1}) = '1' else (others => '0');")
                         else:
-                            lines.append(f"{indent}stages_(0, {i}) <= weights({i}) when inputs({self.data_width - i -1}) = '1' else (others => '0');")  
+                            lines.append(f"{indent}stages(0, {i}) <= resize(first_regs({i}), {self.n_dict['w_bitwidth']}) when inputs({self.data_width - i -1}) = '1' else (others => '0');")  
                 else:
                     indent=""
                     for i in range(self.data_width):
                         if self.n_dict["weight_file"] is True:
                             lines.append(f"{indent}stages(0, {i}) <= resize(weights( start_weight + {i} ), {self.n_dict['w_bitwidth']}) when inputs({self.data_width - i -1}) = '1' else (others => '0');")
                         else:
-                            lines.append(f"{indent}stages(0, {i}) <= weights({i}) when inputs({self.data_width - i -1}) = '1' else (others => '0');")  
+                            lines.append(f"{indent}stages(0, {i}) <= resize(first_regs({i}), {self.n_dict['w_bitwidth']}) when inputs({self.data_width - i -1}) = '1' else (others => '0');")  
 
         self.n_dict.update({"weight_loading":lines})
         
@@ -277,7 +277,7 @@ class NeuronModel:
 
         elif self.n_dict["is_serialized"] == False and self.n_dict["handshake"] == False:
             if self.n_dict["full_output"] == True:
-                line = f"output_final_next <= sum;"
+                line = f"output_final <= sum;"
                 activation_logic.append(line)
             else:
                 if activation_type == "ReLU":

@@ -1,5 +1,6 @@
 import onnx
 import json
+import yaml
 import numpy as np
 from onnx import numpy_helper
 from onnx import shape_inference
@@ -153,6 +154,26 @@ class ModelParser:
         with open('json_files/network_details.json', 'w') as json_file:
             json.dump(self.model, json_file, indent=4)
 
+
+
+    def hyperM_function(self):
+   
+        with open('json_files/network_details.json', "r") as f:
+                existing_data = json.load(f)
+
+        with open('json_files/user_config.yaml', "r") as f:
+                user_data = yaml.safe_load(f)
+
+        merged = {**existing_data, **user_data}
+
+        with open("json_files/network_details.json", "w") as f:
+            json.dump(merged, f, indent=4)
+
+        self.model=merged
+        print(f"Data saved to {'json_files/network_details.json'}.")
+
+    """ Uncomment the following code section to enable input from terminal
+
     def hyperM_function(self):
         hyper_prm = {}
         
@@ -244,6 +265,8 @@ class ModelParser:
             json.dump(existing_data, f, indent=4)
         self.model=existing_data
         print(f"Data saved to {'json_files/network_details.json'}.")
+    """
+        
 
     def find_activation_function(self, tensor_name, input_to_nodes):
         # Follow nodes that consume the tensor_name
