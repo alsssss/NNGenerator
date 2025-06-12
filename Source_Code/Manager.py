@@ -12,15 +12,19 @@ from PkgModel import PkgModel
 from TestBenchModel import TestBenchModel
 from ControllerModel import ControllerModel
 from MaxModel import MaxModel
+from MemoryModel import MemoryModel
 
 """ 
 Folder structure: 
 proj.
-  |-> Source_Code -> The main python code is here 
-        |->Json_files     
-  |-> Templates -> VHDL templates are here
-  |-> ONNX_Models
-  |-> Results
+  |-> Source_Code     -> The main python code is here 
+        |->Json_files -> Contains .json dictionary and .yaml user config file   
+  |-> Templates       -> VHDL templates are here
+  |-> ONNX_Models     -> Pre-trained Neural network models in ONNX format
+  |-> Results         -> All results are written here, each inside its folder
+  |-> Input_generator -> Scripts to prepare input data
+  |-> Unused          -> Folder that contains not to be synthetised files
+  |-> Synthesis files -> Contains vhdl code needed for synthesis 
 """
 
 class Manager:
@@ -48,22 +52,32 @@ class Manager:
     neuron_attitudes = []
     full_output_mem = [] 
     current_neurons = []
+    rom_weights_length = 0 
+
+
 
     def __init__(self, filename, final_dir):
+
         here = os.path.dirname(os.path.abspath(__file__))  
         parent_dir = os.path.join(here, os.pardir)  
-        templates_dir = os.path.join(parent_dir, "Templates")  
+        templates_dir = os.path.join(parent_dir, "Templates")
         os.makedirs(templates_dir, exist_ok=True)
+        unused_dir = os.path.join(parent_dir, "Unused")  
+        os.makedirs(unused_dir, exist_ok=True)
         json_dir = os.path.join(here, "json_files")
         os.makedirs(json_dir, exist_ok=True)
         ONNX_dir = os.path.join(parent_dir, "ONNX_Models")  
         os.makedirs(ONNX_dir, exist_ok=True)
+        synth_dir = os.path.join(parent_dir, "Synthesis files")
+        os.makedirs(synth_dir, exist_ok=True)
         results_dir = os.path.join(parent_dir, "Results")  
         os.makedirs(results_dir, exist_ok=True)
 
-        self.templates_dir = templates_dir  
+        self.templates_dir = templates_dir
+        self.unused_dir = unused_dir  
         self.json_dir = json_dir
         self.ONNX_dir = ONNX_dir
+        self.synth_dir = synth_dir
         self.final_dir = os.path.join(results_dir, final_dir) 
         self.activations = [
             'Relu', 'Sigmoid', 'Tanh', 'Softmax', 'LeakyRelu',
@@ -77,7 +91,7 @@ class Manager:
         parser.hyperM_function()
         self.onnx_dict = parser.model
         self.onnx_dict["different_neurons"] = True
-        self.onnx_dict["handshake"] = True
+#* ==>        self.onnx_dict["handshake"] = True
         if self.onnx_dict["handshake"] is True:
              self.onnx_dict["sum_logic"] = "state_mode"
         else:
@@ -139,21 +153,19 @@ class Manager:
     def get_all_columns_padded(self):
         all_columns = []
 
-        # Collect all column vectors from each layer
         for layer_index in range(self.onnx_dict["num_layers"]):
             matrix = self.get_layer_weight_matrix(layer_index)
             _, num_neurons = matrix.shape
             for col in range(num_neurons):
-                col_data = [int(val) for val in matrix[:, col]]  # Convert to integers
+                col_data = [int(val) for val in matrix[:, col]]  
                 all_columns.append(col_data)
 
-        # Find the maximum length
         max_length = max(len(col) for col in all_columns)
 
         # Pad each column with zeros (as integers) to the max_length
         padded_columns = []
         for col in all_columns:
-            padding = [0] * (max_length - len(col))  # Use integer zero
+            padding = [0] * (max_length - len(col)) 
             padded_columns.append(col + padding)
 
         return padded_columns
@@ -161,7 +173,6 @@ class Manager:
     def get_padded_weight_columns(self, selected_layers, max_neurons_num, less_neuron=False):
         all_columns = []
 
-        # Collect all columns (neuron weight vectors) from the selected layers
         for layer_index in selected_layers:
             matrix = np.array(self.onnx_dict["layers"][layer_index]["weights_matrix"])
             num_inputs, num_neurons = matrix.shape
@@ -181,14 +192,12 @@ class Manager:
 
             all_columns.extend(layer_columns)
 
-        # Now ensure all columns are padded to the same height (max_length)
         max_length = max(len(col) for col in all_columns)
         padded_columns = [col + [0] * (max_length - len(col)) for col in all_columns]
 
         if less_neuron:
             return padded_columns
 
-        # Default behavior: pad rows to fill max_neurons_num × num_layers
         desired_total_rows = max_neurons_num * len(selected_layers)
         current_rows = len(padded_columns)
         pad_rows = desired_total_rows - current_rows
@@ -209,7 +218,7 @@ class Manager:
             for j in range(neurons[i]):
                 temp.append(count + input_widths[i] * j)
             result += temp
-            count = temp[-1] + input_widths[i]  # move to the next block
+            count = temp[-1] + input_widths[i]  
         return result
     
     def get_weight_costants(self, input_width, num_neurons):
@@ -229,7 +238,7 @@ class Manager:
         bias_list = []
         for i, layer in enumerate(layers):
             if i not in selected_layers:
-                continue  # Skip if the layer is not selected
+                continue  
             biases = layer.get("biases", [])
             bias_values = [b["bias_value"] for b in biases]
             bias_list.append(bias_values)
@@ -410,7 +419,13 @@ class Manager:
         NN_dict["output_width"] = data_widths[-1]
         NN_dict["layer_output_widths"] = data_widths[1:]
         NN_dict["weight_file"] = self.onnx_dict["weight_file"]
-        NN_dict["t_bitwidth"] = 8     # Chosen by me. Later i can include it in Hyper M file
+        if NN_dict["weight_file"] == False :
+            NN_dict["addr_size"] = self.rom_weights_length
+            if self.onnx_dict["is_serialized"] == True:
+                NN_dict["inferred_neurons_max"] = max(self.current_neurons)
+            else:
+                NN_dict["inferred_neurons_max"] = max(layer["layer_outputs"] for layer in self.onnx_dict["layers"])
+        NN_dict["t_bitwidth"] = 8                           # Chosen by me. Later i can include it in Hyper M file
         NN_dict["handshake"] = self.onnx_dict["handshake"]  # Chosen by me. Later i can include it in Hyper M file (It makes the layers tell the other layers their output is done)
         return NN_dict
 
@@ -437,7 +452,7 @@ class Manager:
                 layers_dict[i]["layer_reuses"] = layer_reuses
                 layers_dict[i]["layer_number"] = layers_to_check
                 layers_dict[i]["layer_name"] = layer_names[i] + "_serial"
-                layers_dict[i]["layer_idx"] = i                          # entry added just for the TopModel class and generation
+                layers_dict[i]["layer_idx"] = i                            # entry added just for the TopModel class and generation
                 layers_dict[i]["handshake"] = self.onnx_dict["handshake"]  # Chosen by me. Later i can include it in Hyper M file (It makes the layers tell the other layers their output is done)
                 if i == 0 :
                     layers_dict[i]["first_layer"] = True
@@ -601,7 +616,10 @@ class Manager:
                         layers_dict[i]["one_layer"] = False
                         layers_dict[i]["use_two"] = False
 
-                count = count + layers_to_check 
+                count = count + layers_to_check
+            if self.onnx_dict["weight_file"] == False :
+                for layer in layers_dict:
+                    layer["inferred_neurons_max"] = max(self.current_neurons)
         else:
             layers = self.onnx_dict.get("layers", [])
             if not layers:
@@ -645,10 +663,24 @@ class Manager:
                 layers_dict[idx]["is_serialized"] = False
                 layers_dict[idx]["neuron_pairs"] = neuron_pairs
                 layers_dict[idx]["handshake"] = self.onnx_dict["handshake"]
-                count += w_count
-        return layers_dict
+                if layers_dict[idx]["weight_file"] == False:
+                    layers_dict[idx]["inferred_neurons_max"] = max(layer["layer_outputs"] for layer in self.onnx_dict["layers"])
+                count += w_count 
 
+
+        return layers_dict
+    
+
+
+
+    """
+    The following method creates the dictionary that is used by the NeuronModel class to create the right neuron for every layer.
+    It is logically diveded into three main blocks, each for the three main categories of neurons 
+    """
     def create_neurons_dict(self):
+    
+    # =============================  Serial neuron block  ========================================
+
         neurons = self.get_neuron_per_layer()
         bit_sizes = self.get_bit_sizes()
         input_widths = self.get_layer_input_widths()
@@ -675,6 +707,8 @@ class Manager:
                 neurons_dict[i]["handshake"] = self.onnx_dict["handshake"]
                 neurons_dict[i]["other_neuron"] = self.neuron_attitudes[i]
                 neurons_dict[i]["one_layer"] = self.one_layer_mem[i]
+
+    # ========================  Parallel neuron block (diff. files)  ============================
 
         elif self.onnx_dict["different_files"] is True:
             neuron_sum = sum(neurons)
@@ -710,6 +744,9 @@ class Manager:
                     if layer_idx < len(neurons):
                         layer_neuron_target += neurons[layer_idx]
                         layer_neuron_counter = 0
+
+    # ========================  Parallel neuron block ( no diff. files)  ============================                     
+        
         else:
             layers = self.onnx_dict.get("layers", [])
             if not layers:
@@ -740,23 +777,33 @@ class Manager:
 
         return neurons_dict
     
+
+
+    """
+    The following is the method that handles the creation of the input loader entity
+    """
     def create_iloader_dict(self):
         loader_dict = {}
         input_width = self.get_layer_input_widths()[0]
         input_size = self.get_bit_sizes()[1]
         loader_dict["templates_dir"] = self.templates_dir
-        loader_dict["t_bitwidth"] = 8   # This might be provided in input by the user and it depends on the memory and on the bus available in hardware   
-        loader_dict["input_width"] = input_width  # This is how many inputs the network has
-        loader_dict["input_size"] = 8    # input_size as bitwidth # This can be ultimately decided by the user, as it is now, it takes the one from ONNX (in fact i changed now its manual)
-        loader_dict["THRESHOLD"] = int(2**8/2)
+        loader_dict["t_bitwidth"] = 8#32              # This might be provided in input by the user and it depends on the memory and on the bus available in hardware   
+        loader_dict["input_width"] = input_width      # This is how many inputs the network has
+        loader_dict["input_size"] = 8                 # self.get_bit_sizes()[1]    # input_size as bitwidth # This can be ultimately decided by the user, as it is now, it takes the one from ONNX (in fact i changed now its manual)
+#* ==>        loader_dict["THRESHOLD"] = 0            # int(2**8/2)
+        loader_dict["THRESHOLD"] = self.onnx_dict["THRESHOLD"]      
         if input_size > 1:
-            loader_dict["binarize"] = True      # Maybe change it to be always true
+            loader_dict["binarize"] = True            # Maybe change it to be always true
         else:
             loader_dict["binarize"] = False
         return loader_dict
 
-################ Method that handles the creation of the dictionary for the VHDL type and constants file #################################
 
+
+    """
+     Method that handles the creation of the dictionary for the VHDL type and constants file.
+     It arranges data differently according to the type of network that has been chosen.
+    """
     def create_pkg_dict(self):
         pkg_dict = {}
         output_size = self.get_bit_sizes()[-1]
@@ -764,14 +811,14 @@ class Manager:
         input_size = self.get_bit_sizes()[1]
         data_widths= self.get_data_widths()
         neurons = self.get_neuron_per_layer()
-        pkg_dict["file_bitwidth"] = 8            # Bitwidth of values stored in file, it is different from the one stated in the ONNX model
+#* ==>        pkg_dict["file_bitwidth"] = 8            # Bitwidth of values stored in file, it is different from the one stated in the ONNX model
+        pkg_dict["file_bitwidth"] = self.onnx_dict["file_bitwidth"]
         pkg_dict["o_bitwidth"] = output_size
         pkg_dict["w_bitwidth"] = weight_size
         pkg_dict["i_bitwidth"] = input_size
+        pkg_dict["weight_file"] = self.onnx_dict["weight_file"]
         if self.onnx_dict["is_serialized"] is True:
             layer_reuses = self.onnx_dict.get("layer_reuses", [])
-
-  #          pkg_dict["bias_per_layer"] = help.generate_layer_offsets(max_len, self.onnx_dict["num_layers"])            
             pkg_dict["data_widths"] = data_widths
             pkg_dict["is_serialized"] = True
             pkg_dict["indexes_per_layer"] = [0] + data_widths[1:-1]
@@ -836,44 +883,129 @@ class Manager:
             pkg_dict["is_serialized"] = False
         return pkg_dict
     
-##########  Modify the parameters in here to change values of memory addresses in the process_controller   ###########
 
+
+############# Dictionary for the memory (ROM) that contains the network's weights ##################
+    def create_net_memory_dict(self, pkg_dict):
+        memory_dict ={}
+#* ==>        memory_dict["file_bitwidth"] = 8 # Aggregate all this statements in another file  
+        memory_dict["file_bitwidth"] = self.onnx_dict["file_bitwidth"]
+        memory_dict["word_size"] = 32
+
+        memory_dict["ram_values"] = []
+
+        if self.onnx_dict["is_serialized"] == True:
+            for (key, value) in (pkg_dict.items()):
+                if isinstance(value, list):
+                    for i,subdict in enumerate(value):
+                        if isinstance(subdict, dict) :
+                            gen_rows = subdict["generated_rows"]
+                            b_array = subdict["bias_array"]
+                            max_width = subdict["max_width"]
+                            max_neurons = subdict["max_neurons"]
+                            ram_values = help.insert_at_intervals(gen_rows, b_array, max_width, max_neurons)
+                            memory_dict["ram_values"] += help.pad_to_multiple_of_four(ram_values, max_width + 1 )
+        else:
+            for layer_index, layer in enumerate(self.onnx_dict["layers"]):
+                matrix = self.get_layer_weight_matrix(layer_index)
+                flattened = []
+                for col in range(matrix.shape[1]):
+                    flattened.extend([int(val) for val in matrix[:, col]])
+                gen_rows = flattened
+                biases = layer.get("biases", [])
+                b_array = [int(b["bias_value"]) for b in biases]
+                max_width = layer.get("layer_inputs", -1)
+                max_neurons = layer.get("layer_outputs", -1)
+                ram_values = help.insert_at_intervals(gen_rows, b_array, max_width, max_neurons)
+                memory_dict["ram_values"] += help.pad_to_multiple_of_four(ram_values, max_width + 1 )
+
+        div = int(memory_dict["word_size"] / memory_dict["file_bitwidth"])
+        mem_depth = help.calculate_mem_depth(len(memory_dict["ram_values"]), div)
+        memory_dict["end_RAM"] = mem_depth
+        memory_dict["addr_size"] = help.calculate_ROM_address(mem_depth) 
+        self.rom_weights_length = memory_dict["addr_size"]
+        if self.onnx_dict["is_serialized"] == True:
+            memory_dict["inferred_neurons_max"] = max(self.current_neurons)
+        else:
+            memory_dict["inferred_neurons_max"] = max(layer["layer_outputs"] for layer in self.onnx_dict["layers"])
+        memory_dict["data_per_neuron_max"] = max(self.get_data_widths())
+        return memory_dict
+
+
+
+    """  
+    Modify the parameters in here to change values of memory addresses in the process_controller
+    """    
     def create_process_conrtoller_dict(self):
         pc_dict = {}
         data_widths = self.get_data_widths()
         pc_dict["handshake"] = self.onnx_dict["handshake"]
         pc_dict["output_neurons"] = self.get_neuron_per_layer()[-1]
-        pc_dict["file_bitwidth"] = 8  # Always a power of 2
-        pc_dict["counter_max"] = 30
-        pc_dict["start_input"] = 0
-        pc_dict["end_input"] = pc_dict["start_input"] + int(data_widths[0] / (32 / pc_dict["file_bitwidth"])) - 1 
-        pc_dict["start_output"] = 25344
-        pc_dict["end_output"] = pc_dict["start_output"] + data_widths[-1] - 1 
+        pc_dict["addr_size"] = 11     # Chosen by me 
+        pc_dict["word_size"] = 32     # Chosen by me (keep this fixed) 
+#* ==>        pc_dict["file_bitwidth"] = 8  # Always a power of 2
+        pc_dict["t_bitwidth"] = 8     # Chosen by me (keep it fixed)
+#        pc_dict["file_bitwidth"] = self.onnx_dict["file_bitwidth"]
+#* ==>         pc_dict["counter_max"] = 30
+        pc_dict ["counter_max"] = self.onnx_dict["counter_max"]
+#* ==>        pc_dict["start_input"] = 0
+        pc_dict["start_input"] = self.onnx_dict["start_input"]
+        pc_dict["end_input"] = pc_dict["start_input"] + int(data_widths[0] / (32 / pc_dict["t_bitwidth"])) - 1 
+#* ==>        pc_dict["start_output"] = 25344
+        pc_dict["start_output"] = self.onnx_dict["start_output"]
+        pc_dict["end_output"] = pc_dict["start_output"] + data_widths[-1]  
+        pc_dict["end_memory"] = 2**pc_dict["addr_size"] - 1 
         return pc_dict
+
 
 
     def creat_top_level_dict(self):
         top_dict = {}
         top_dict["handshake"] = self.onnx_dict["handshake"]
+        top_dict["addr_size"] = 11
         top_dict["output_neurons"] = self.get_neuron_per_layer()[-1]
         return top_dict
 
-###########  Helps in creating a testbench for the starting net #############
-#     
+
+
+    """ 
+    Helps in creating a testbench for the starting net 
+    """ 
     def create_TB_dict(self):
         TB_dict ={}
-        TB_dict["input_values"] = [255, 0, 0, 255, 255, 255, 0, 0, 255, 0, 0, 0, 0, 255, 0, 0, 255, 255, 0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 0, 255, 0, 255, 0, 0, 0, 255, 0, 255, 0, 0, 0, 255, 255, 255, 0, 0, 255, 0, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 0, 255, 0, 0, 255]
+        input_sample="sample4_4.npy"    # Change this to consider different samples
+        main_dir = os.path.join(self.templates_dir, os.pardir)
+        dir_28x28 = os.path.join(main_dir, "Input_generator/MNIST_28x28")
+        dir_14x14 = os.path.join(main_dir, "Input_generator/MNIST_14x14")
+        dir_8x8 = os.path.join(main_dir, "Input_generator/MNIST_8x8")
+        data_file = os.path.join(dir_28x28, input_sample)
+
+        
+#        data_file = os.path.join(dir_14x14, input_sample)
+#        data_file = os.path.join(dir_8x8, input_sample)
+        """   Uncomment to analyze .npy files      """
+        data = np.load(data_file).flatten()
+
+        """   Uncomment to analyze .npz files      """
+#        data = np.load(data_file)
+#        data = data["x"].flatten(order = 'F')
+        data = np.array(data, dtype=np.float32)
+        data_uint8 = (data * 255).astype(np.uint8)
+
+        TB_dict["input_values"] = data_uint8
+#        TB_dict["input_values"] = [255, 0, 0, 255, 255, 255, 0, 0, 255, 0, 0, 0, 0, 255, 0, 0, 255, 255, 0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 0, 255, 0, 255, 0, 0, 0, 255, 0, 255, 0, 0, 0, 255, 255, 255, 0, 0, 255, 0, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 0, 255, 0, 0, 255]
         return TB_dict
+
 
 
 def main():
     #Modify this to produce new networks 
     output_dir = input("Please enter the desired output directory name (default is 'New_network'): ") or "New_network" # Remember this is inside the result folder
-    onnx_file_name = "dense_bam_8x8_trained.onnx"   # Here it accepts the Modify the name of the ONNX file to load 
+    onnx_file_name = "dense_bam.onnx"   # Here it accepts the Modify the name of the ONNX file to load 
+#    onnx_file_name = "dense_bam_8x8_trained.onnx"
+#    onnx_file_name = "dense_bam_14x14_trained.onnx"
     manager = Manager(onnx_file_name, output_dir) 
-
-
-    neural_network= manager.create_NN_model_dict()
+    
     layers = manager.create_layers_dict()
     neurons = manager.create_neurons_dict()
     i_loader = manager.create_iloader_dict()
@@ -881,14 +1013,20 @@ def main():
     pkg = manager.create_pkg_dict()
     proc_controller = manager.create_process_conrtoller_dict()
     top_level = manager.creat_top_level_dict()
-
+    if manager.onnx_dict["weight_file"] == False:
+        mem_config = manager.create_net_memory_dict(pkg)
+    neural_network= manager.create_NN_model_dict()
 
     TopModel(neural_network, layers, neurons, manager.templates_dir, manager.final_dir)
     LoaderModel(i_loader, manager.templates_dir, manager.final_dir)
     PkgModel(pkg, manager.templates_dir, manager.final_dir) 
-    TestBenchModel(testbench, manager.templates_dir, manager.final_dir) 
-    ControllerModel(proc_controller, manager.templates_dir, manager.final_dir)
+    TestBenchModel(testbench, manager.templates_dir, manager.unused_dir) 
+    if manager.onnx_dict["with_uart"] == True:
+        ControllerModel(proc_controller, manager.templates_dir, manager.final_dir)
+        help.include_synthesis_files(manager.synth_dir, manager.final_dir)
     MaxModel(top_level, manager.templates_dir, manager.final_dir)
+    if manager.onnx_dict["weight_file"] == False:
+        MemoryModel(mem_config, manager.templates_dir, manager.final_dir)
 
 if __name__ == "__main__":
     main()

@@ -4,14 +4,18 @@ import os
 class ControllerModel:
 
     """ 
-    Class needed to customize parameters of the process controller
+    This class handles the customization of the parameters related to the 
+    process controller and controller entities of the design.
     """
 
     def __init__(self, pc_dict, template_dir, final_dir):
         self.pc_dict = pc_dict
-        template_file = "process_controller.vhd"
-        output_file = "process_controller.vhd"
-        self.generate_vhdl(template_dir, template_file, final_dir, output_file)
+        template_file_1 = "process_controller.vhd"
+        output_file_1 = "process_controller.vhd"
+        template_file_2 = "controller.vhd"
+        output_file_2 = "controller.vhd"        
+        self.generate_vhdl(template_dir, template_file_1, final_dir, output_file_1)
+        self.generate_vhdl(template_dir, template_file_2, final_dir, output_file_2)
 
    
     def generate_vhdl(self, template_dir, template_file, output_dir, output_file):

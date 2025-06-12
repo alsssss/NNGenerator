@@ -56,16 +56,29 @@ class PkgModel:
     def wrap_bias_into_signed(self, bias_data):
         bitwidth = self.pkg_dict['file_bitwidth']
 
-        # If it's a list of lists, flatten it
         if any(isinstance(b, (list, tuple)) for b in bias_data):
             flat_list = [int(float(val)) for sublist in bias_data for val in sublist]
         else:
             flat_list = [int(float(val)) for val in bias_data]
-
-        # Return a list of VHDL-formatted strings
         return [f"to_signed({val}, {bitwidth})" for val in flat_list]
    
-    
+
+    def pack_8bit_to_32bit_bitvector(data_8bit):
+
+        # Pad with zeros if needed
+        while len(data_8bit) % 4 != 0:
+            data_8bit.append(0)
+
+        packed_bitvectors = []
+        for i in range(0, len(data_8bit), 4):
+            # Convert each byte to 8-bit binary string
+            bits = ''.join(f"{b:08b}" for b in data_8bit[i:i+4])
+            packed_bitvectors.append(bits)
+        return packed_bitvectors
+
+
+
+
     def generate_vhdl(self, template_dir, template_file, output_dir, output_file):
         env = Environment(loader=FileSystemLoader(template_dir))
         template = env.get_template(template_file)

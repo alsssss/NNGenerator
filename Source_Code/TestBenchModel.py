@@ -8,11 +8,11 @@ class TestBenchModel:
     The file it outputs must not be used in a project, just the data inside.
     """
 
-    def __init__(self, TB_dict, template_dir, final_dir):
+    def __init__(self, TB_dict, template_dir, unused_dir):
         self.TB_dict = TB_dict
         template_file = "testbench.vhd"
         output_file = "network_TB.vhd"
-        self.generate_vhdl(template_dir, template_file, final_dir, output_file)
+        self.generate_vhdl(template_dir, template_file, unused_dir, output_file)
 
    
     def generate_vhdl(self, template_dir, template_file, output_dir, output_file):
