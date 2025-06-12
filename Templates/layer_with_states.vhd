@@ -8,7 +8,7 @@ entity {{ layer_name }} is
         layer_number: natural{%- if layer_reuses | length >= 2 %};
         start_index : natural
         {%- endif %}
-          -- I can change this to make it a costant changed by python (can keep this here if i would like multiple serialized layers with fixed deadlines)
+
     );
 
     Port (
@@ -16,7 +16,16 @@ entity {{ layer_name }} is
         rst               : in std_logic;
         inputs            : in std_logic_vector ({{max_data_width-1}} downto 0);
         {%- if first_layer is true or handshake is true %}
-        start             : in std_logic; -- '1' when inputs have been retrieved (might extend it to include weight and bias retrieval)
+        start             : in std_logic; 
+        {%- endif %}
+        {%- if weight_file is false %}
+        input_idx         : in natural;
+        neuron_data       : in signed(7 downto 0);
+        load_n            : in std_logic_vector({{ inferred_neurons_max - 1 }} downto 0);
+        done_load         : in std_logic;
+        req_ROM           : out std_logic;
+        input_break       : out natural;
+        neuron_break      : out natural;
         {%- endif %}
         {%- if handshake is true %}
         done              : out std_logic;
@@ -26,13 +35,12 @@ entity {{ layer_name }} is
         {%- else %}
         outputs           : out std_logic_vector ({{ out_neuron_number - 1}} downto 0)
         {%- endif %}
---        finish            : out std_logic
     );
 end {{ layer_name }};
 
 architecture Behavioral of {{ layer_name }} is
 
-    type state_type is (IDLE, INITIATE,{%- if less_neurons is true %} WAIT_N_DONE, CHECK_REPEAT, UPDATE_REPEAT, UPDATE_DONE,{%- else %} WAIT_L_DONE,{%- endif %}{%- if one_layer is false %} CLEAR_INPUTS, COPY_OUTPUTS,{%- endif %}{%- if one_layer is true and output_bit is true %} COPY_OUTPUTS,{%- endif %} COMPLETE, UPDATE_INDEXES, TERMINATE);
+    type state_type is (IDLE, INITIATE,{%- if less_neurons is true %} WAIT_N_DONE, CHECK_REPEAT, UPDATE_REPEAT, UPDATE_DONE,{%- else %} WAIT_L_DONE,{%- endif %}{%- if one_layer is false %} CLEAR_INPUTS, COPY_OUTPUTS,{%- endif %}{%- if one_layer is true and output_bit is true %} COPY_OUTPUTS,{%- endif %} COMPLETE,{%- if weight_file is true %} UPDATE_INDEXES,{%- endif %} TERMINATE);
     signal state, next_state                      : state_type := IDLE;
     signal start_neuron, start_neuron_nxt         : std_logic := '0';
     signal connection_in, connection_in_nxt       : std_logic_vector({{ max_data_width - 1 }} downto 0) := (others => '0');
@@ -47,9 +55,11 @@ architecture Behavioral of {{ layer_name }} is
     {%- endif %}
     {%- endif %}
     
+    {%- if weight_file is true %}
     signal start_weight, start_weight_nxt         : natural range 0 to {{ range_max - 1 }} := 0;
     signal bias_index, bias_index_nxt             : natural range 0 to {{ range_max - 1 }} := 0;
-    
+    {%- endif %}
+
     {%- if less_neurons is true %}
     {%- if output_bit is true %}
     signal neuron_slice_out                       : std_logic_vector({{ fixed_neurons_num -1 }} downto 0) := (others => '0');
@@ -77,14 +87,30 @@ architecture Behavioral of {{ layer_name }} is
     {%- endif %}
     {%- endif %}
 
+    {%- if weight_file is true %}
     {%- if less_neurons is true %}
     constant ALL_ONES                             : std_logic_vector({{ fixed_neurons_num - 1 }} downto 0) := (others => '1');
     {%- else %}
     constant ALL_ONES                             : std_logic_vector({{ max_neuron_number - 1 }} downto 0) := (others => '1');
     {%- endif %}
+    {%- endif %}
+
+    {%- if weight_file is false %}
+    constant NEURON_INPUTS                        : natural := {{ max_data_width + 1 }}; 
+    {%- if less_neurons is true %}
+    constant NEURON_NUM                           : natural := {{ fixed_neurons_num }};
+    {%- else %}
+    constant NEURON_NUM                           : natural := {{ max_neuron_number }};
+    {%- endif %}
+    {%- endif %}
 
 
 begin
+
+    {%- if weight_file is false %}
+    input_break <= NEURON_INPUTS;
+    neuron_break <= NEURON_NUM;
+    {%- endif %}
 
     -- === Neuron Instantiations ===
     {%- if less_neurons is true %}
@@ -100,8 +126,10 @@ begin
             rst          => rst,
             inputs       => connection_in,
             {%- if weight_file is false %}
-            weights      => -- qui metti le cose giuste,
-            biases       => -- qui metti le cose giuste,
+            load_en      => load_n({{ i }}),
+            input_idx    => input_idx,
+            data         => neuron_data,
+            done_load    => done_load,
             {%- else %}
             bias_index   => bias_index,
             start_weight => start_weight,
@@ -130,8 +158,10 @@ neuron_inst_{{ i }} : entity work.neuron_{{ neur_idx }}
         rst          => rst,
         inputs       => connection_in,
         {%- if weight_file is false %}
-        weights      => -- weights 
-        biases       => -- biases 
+        load_en      => load_n({{ i }}),
+        input_idx    => input_idx,
+        data         => neuron_data,
+        done_load    => done_load, 
         {%- else %}
         bias_index   => bias_index,
         start_weight => start_weight,
@@ -159,8 +189,10 @@ neuron_inst_{{ i }} : entity work.neuron_{{ neur_idx + 1 }}
         rst          => rst,
         inputs       => connection_in,
         {%- if weight_file is false %}
---        weights      =>  weights,    This is for eventually loading weights from memory
---        biases       =>  biases,     This is for eventually loading weights from memory
+        load_en      => load_n({{ i }}),
+        input_idx    => input_idx,
+        data         => neuron_data,
+        done_load    => done_load, 
         {%- else %}                         
         bias_index   => bias_index,
         start_weight => start_weight,
@@ -188,8 +220,10 @@ begin
 
         layer_count  <= 0;
         last_layer   <= '0';
+        {%- if weight_file is true %}
         start_weight <= 0;
         bias_index   <= 0;
+        {%- endif %}
 
         {%- if less_neurons is true %}
         {%- if full_output is true %}
@@ -220,11 +254,12 @@ begin
         connection_out   <= connection_out_nxt;
         {%- endif %}
         {%- endif %}
-
         layer_count      <= layer_count_nxt;
         last_layer       <= last_layer_nxt;
+        {%- if weight_file is true %}
         start_weight     <= start_weight_nxt;
         bias_index       <= bias_index_nxt;
+        {%- endif %}
 
         {%- if less_neurons is true %}
         {%- if full_output is true %}
@@ -248,7 +283,7 @@ begin
 end process;
 
 
-process(state, start, start_neuron, last_layer,{%- if less_neurons is true %} neuron_slice_done,{%- if output_bit is true %} neuron_slice_out,{%- endif %} overflow_counter, {%- if full_output is true %}outputs_cp, output_part,{%- endif %}{%- else %} neuron_done,{%- endif %} layer_count, inputs, bias_index, start_weight, connection_in {%- if output_bit is true %}, connection_out {%- endif %})
+process(state, start, start_neuron, last_layer,{%- if less_neurons is true %} neuron_slice_done,{%- if output_bit is true %} neuron_slice_out,{%- endif %} overflow_counter, {%- if full_output is true %}outputs_cp, output_part,{%- endif %}{%- else %} neuron_done,{%- endif %} layer_count, inputs,{%- if weight_file is true %} bias_index, start_weight,{%- endif %} connection_in {%- if output_bit is true %}, connection_out {%- endif %})
 
     variable tmp_state            : state_type;
     variable tmp_start_neuron     : std_logic;    
@@ -258,8 +293,10 @@ process(state, start, start_neuron, last_layer,{%- if less_neurons is true %} ne
     {%- endif %}
     variable tmp_layer_count      : integer range 0 to layer_number;
     variable tmp_last_layer       : std_logic;
+    {%- if weight_file is true %}
     variable tmp_start_weight     : natural;
     variable tmp_bias_index       : natural;
+    {%- endif %}
 
     {%- if less_neurons is true %}
     {%- if full_output is true %}
@@ -285,8 +322,12 @@ begin
 
     tmp_layer_count      := layer_count;
     tmp_last_layer       := last_layer;
+    {%- if weight_file is true %}
     tmp_start_weight     := start_weight;
     tmp_bias_index       := bias_index;
+    {%- else %}
+    req_ROM              <= '0';
+    {%- endif %}
     {%- if less_neurons is true %}
     {%- if full_output is true %}
     tmp_outputs_cp       := outputs_cp;    
@@ -309,11 +350,18 @@ begin
             {%- else %}
             tmp_state        := WAIT_L_DONE;
             {%- endif %}
+            {%- if weight_file is false %}
+            req_ROM          <= '1';
+            {%- endif %}
         
         {%- if less_neurons is true %}
         
         when WAIT_N_DONE =>
-            if neuron_slice_done = ALL_ONES then 
+            {%- if weight_file is true %}
+            if neuron_slice_done = ALL_ONES then
+            {%- else %} 
+            if neuron_slice_done({{ fixed_neurons_num - 1 }}) = '1' then
+            {%- endif %}
             tmp_start_neuron := '0';
             tmp_state := CHECK_REPEAT;
             else
@@ -365,8 +413,10 @@ begin
 
         when UPDATE_REPEAT =>
             tmp_overflow_counter := overflow_counter + 1;
+            {%- if weight_file is true %}
             tmp_start_weight     := start_weight + {{ fixed_neurons_num }};
             tmp_bias_index       := bias_index + {{ fixed_neurons_num }};
+            {%- endif %}
             tmp_state            := INITIATE;
 
         when UPDATE_DONE =>
@@ -384,7 +434,11 @@ begin
         
 
         when WAIT_L_DONE =>
+            {%- if weight_file is true %}
             if neuron_done = ALL_ONES then 
+            {%- else %}
+            if neuron_done({{ max_neuron_number - 1 }}) = '1' then 
+            {%- endif %}
                 tmp_start_neuron := '0';
                 {%- if one_layer is true and output_bit is true %}
                 tmp_state        := COPY_OUTPUTS;
@@ -433,10 +487,15 @@ begin
                 tmp_state := TERMINATE;
             else
                 tmp_layer_count := layer_count+1;
+                {%- if weight_file is true %}
                 tmp_state       := UPDATE_INDEXES;
+                {%- else %}
+                tmp_state       := INITIATE;
+                {%- endif %}
             end if;
 
-        when UPDATE_INDEXES => 
+        {%- if weight_file is true %}
+        when UPDATE_INDEXES =>
             {%- if less_neurons is true %}
             tmp_start_weight := start_weight + {{ fixed_neurons_num }};
             tmp_bias_index   := bias_index + {{ fixed_neurons_num }};
@@ -445,6 +504,7 @@ begin
             tmp_bias_index   := bias_index + {{ max_neuron_number }};
             {%- endif %}
             tmp_state        := INITIATE;
+        {%- endif %}
 
         when TERMINATE => 
             tmp_last_layer  := '0';
@@ -465,8 +525,10 @@ begin
         {%- endif %}
         layer_count_nxt      <= tmp_layer_count;
         last_layer_nxt       <= tmp_last_layer;
+        {%- if weight_file is true %}
         start_weight_nxt     <= tmp_start_weight;
         bias_index_nxt       <= tmp_bias_index;
+        {%- endif %}
         {%- if less_neurons is true %}
         {%- if full_output is true %}
         outputs_cp_nxt       <= tmp_outputs_cp;

@@ -34,15 +34,31 @@ begin
                 internal_temp <= (others => '0');
             elsif enable = '1' then
                 {%- for i in range(bits_per_cycle) %}
-                if (internal_temp'high - count * {{ bits_per_cycle }} + {{ i }}) >= 0 then
+                {%- if bits_per_cycle == 1 %}
+                if ({{ input_width - 1 + i }} - count) >= 0 then
+                {%- else %}
+                if ({{ input_width - 1 + i }} - count * {{ bits_per_cycle }}) >= 0 then
+                {%- endif %}
                     {%- if binarize %}
                     if inputs({{ input_size*i+input_size-1 }} downto {{ input_size*i }}) > to_unsigned({{ THRESHOLD }}, {{input_size}}) then
-                        internal_temp( internal_temp'high - count * {{ bits_per_cycle }} + {{ i }}) <= '1';
+                        {%- if bits_per_cycle == 1 %}
+                        internal_temp({{ input_width - 1 + i }} - count) <= '1';
+                        {%- else %}
+                        internal_temp({{ input_width - 1 + i }} - count * {{ bits_per_cycle }}) <= '1';
+                        {%- endif %}
                     else
-                        internal_temp( internal_temp'high - count * {{ bits_per_cycle }} + {{ i }}) <= '0';
+                        {%- if bits_per_cycle == 1 %}
+                        internal_temp({{ input_width - 1 + i }} - count) <= '0';
+                        {%- else %}
+                        internal_temp({{ input_width - 1 + i }} - count * {{ bits_per_cycle }}) <= '0';
+                        {%- endif %}
                     end if;
                     {%- else %}
-                    internal_temp( internal_temp'high - count * {{ bits_per_cycle }} + {{ i }}) <= inputs({{ input_size*i+input_size-1 }}); -- store msb or modify for full data
+                    {%- if bits_per_cycle == 1 %}
+                    internal_temp({{ input_width - 1 + i }} - count) <= inputs({{ input_size*i+input_size-1 }}); -- store msb or modify for full data
+                    {%- else %}
+                    internal_temp({{ input_width - 1 + i }} - count * {{ bits_per_cycle }}) <= inputs({{ input_size*i+input_size-1 }}); -- store msb or modify for full data
+                    {%- endif %}
                     {%- endif %}
                 end if;
                 {%- endfor %}

@@ -14,7 +14,7 @@ use ieee.numeric_std.all;
 
 entity controller is
     generic(
-        MEMORY_ADDR_SIZE : integer := 16
+        MEMORY_ADDR_SIZE : integer := 11
     );
     port(
         clk                : in  std_logic;
@@ -50,7 +50,7 @@ architecture rtl of controller is
     signal state, state_next : state_type;
 
     signal data_buffer, data_buffer_next : std_logic_vector(31 downto 0);
-    signal addr_count, addr_count_next : unsigned(15 downto 0);
+    signal addr_count, addr_count_next : unsigned({{ addr_size - 1 }} downto 0);
 
 begin
     mem_addr <= std_logic_vector(addr_count);
