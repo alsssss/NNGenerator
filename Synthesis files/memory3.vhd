@@ -2,7 +2,8 @@
 -- Dual-Port Block ram with Two Write Ports Modelized with a Shared Variable
 -- --LITTLE ENDIAN--
 --
--- Data size is 32 bits, memory size is 2^ADDR_SIZE
+-- Data size is 32 bits, memory size is fixed to 11.
+-- For a bigger storage unity change this parameter in the other entities too.
 --
 -- File: HDL_Coding_Techniques/rams/rams_8b.vhd
 --------------------------------------------------------------------------------
@@ -13,7 +14,7 @@ use IEEE.std_logic_unsigned.all;
 
 entity memory3 is
     generic(
-        ADDR_SIZE : integer := 16
+        ADDR_SIZE : integer := 11
     );
     port(
         clk   : in  std_logic;

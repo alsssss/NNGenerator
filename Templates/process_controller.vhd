@@ -5,23 +5,23 @@ use work.TYPE_DEF.all;
 
 entity process_controller is
     generic(
-        MEMORY_ADDR_SIZE  : INTEGER :=16
+        MEMORY_ADDR_SIZE  : INTEGER := {{ addr_size }}
     );
     Port (
         clk               : in std_logic;
         rst               : in std_logic;
         start_db          : in std_logic;
-        doa_memory        : in std_logic_vector (31 downto 0 );
+        doa_memory        : in std_logic_vector ({{ word_size - 1 }} downto 0 );
         nn_output         : in output (0 to {{ output_neurons - 1 }}); -- This is needed beacause UART send lsb first
         {%- if handshake is true %}
 		nn_done           : in std_logic;
         {%- endif %}
         en_register       : out std_logic;
-        data_loader_reg   : out unsigned ({{ file_bitwidth - 1 }} downto 0);
+        data_loader_reg   : out unsigned ({{ t_bitwidth - 1 }} downto 0);
         ena_memory        : out std_logic;
         wea_memory        : out std_logic;
-        dia_memory        : out std_logic_vector (31 downto 0);
-        mem_addr          : out std_logic_vector (15 downto 0);
+        dia_memory        : out std_logic_vector ({{ word_size - 1 }} downto 0);
+        mem_addr          : out std_logic_vector ({{ addr_size - 1 }} downto 0);
         finish            : out std_logic
         );
 end process_controller;
@@ -33,12 +33,12 @@ architecture Behavioral of process_controller is
     constant ADDR_COUNT_UPLOAD_END     : unsigned(ADDR_COUNT_SIZE - 1 downto 0) := to_unsigned({{ end_input }}, ADDR_COUNT_SIZE); -- Last pixel address of the memory for the download image
     constant ADDR_COUNT_DOWNLOAD_START : unsigned(ADDR_COUNT_SIZE - 1 downto 0) := to_unsigned({{ start_output }}, ADDR_COUNT_SIZE); -- First pixel address of the memory for the upload image
     constant ADDR_COUNT_DOWNLOAD_END   : unsigned(ADDR_COUNT_SIZE - 1 downto 0) := to_unsigned({{ end_output }}, ADDR_COUNT_SIZE); -- Last pixel address of the memory for the upload image
-    constant ADDR_COUNT_MAX            : unsigned(ADDR_COUNT_SIZE - 1 downto 0) := to_unsigned(65535, ADDR_COUNT_SIZE); -- Final address of the memory
+    constant ADDR_COUNT_MAX            : unsigned(ADDR_COUNT_SIZE - 1 downto 0) := to_unsigned({{ end_memory }}, ADDR_COUNT_SIZE); -- Final address of the memory [ REMEMBER THIS ]
 
     type state_type is (START, UPLOAD_B0, UPLOAD_B1, UPLOAD_B2, UPLOAD_B3, UPLOAD_WAIT, UPLOAD_CHECK, WAIT_FOR_OUTPUT, WRITE_OUTPUT, PROCESS_COMPLETED);
     signal state, state_next : state_type;
 
-    signal addr_count, addr_count_next : unsigned(15 downto 0);
+    signal addr_count, addr_count_next : unsigned({{ addr_size - 1 }} downto 0);
     {%- if handshake is false %}
     signal counter,counter_next: integer range 0 to {{ counter_max }};
     {%- endif %}
@@ -49,7 +49,7 @@ begin
     
     mem_addr <= std_logic_vector(addr_count);
     
-    process(state, addr_count, doa_memory, start_db,{%- if handshake is true %} nn_done,{%- else %} counter,{%- endif %} output_count)
+    process(state, addr_count, doa_memory, start_db,{%- if handshake is true %} nn_done,{%- else %} counter,{%- endif %} output_count, nn_output)
     begin
         
         state_next         <= state;
@@ -83,25 +83,25 @@ begin
             when UPLOAD_B0 =>
                 ena_memory        <= '1';
                 en_register       <= '1';
-                data_loader_reg   <= unsigned(doa_memory ({{ file_bitwidth - 1 }} downto 0));
+                data_loader_reg   <= unsigned(doa_memory ({{ t_bitwidth - 1 }} downto 0));
                 state_next        <= UPLOAD_B1;
 
             when UPLOAD_B1 =>
                 ena_memory        <= '1';
                 en_register       <= '1';
-                data_loader_reg   <= unsigned(doa_memory ({{ 2*file_bitwidth - 1 }} downto {{ file_bitwidth }}));
+                data_loader_reg   <= unsigned(doa_memory ({{ 2*t_bitwidth - 1 }} downto {{ t_bitwidth }}));
                 state_next        <= UPLOAD_B2;
 
             when UPLOAD_B2 =>
                 ena_memory        <= '1';
                 en_register       <= '1';
-                data_loader_reg   <= unsigned(doa_memory ({{ 3*file_bitwidth - 1 }} downto {{ 2*file_bitwidth }}));
+                data_loader_reg   <= unsigned(doa_memory ({{ 3*t_bitwidth - 1 }} downto {{ 2*t_bitwidth }}));
                 state_next        <= UPLOAD_B3;
  
             when UPLOAD_B3 =>
                 ena_memory        <= '1';
                 en_register       <= '1';
-                data_loader_reg   <= unsigned(doa_memory ({{ 4*file_bitwidth - 1 }} downto {{ 3*file_bitwidth }}));
+                data_loader_reg   <= unsigned(doa_memory ({{ 4*t_bitwidth - 1 }} downto {{ 3*t_bitwidth }}));
                 addr_count_next   <= addr_count + 1;
                 state_next        <= UPLOAD_CHECK;
 

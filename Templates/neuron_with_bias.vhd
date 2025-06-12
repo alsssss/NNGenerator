@@ -66,7 +66,7 @@ architecture Behavioral of {{ name }}_{{neur_idx}} is
     type state_type is (IDLE, COMPUTE, DONE);
     {%- endif %}
     type matrix_type is array ( 0 to {{ num_stages }}, 0 to data_width-1 ) of signed({{w_bitwidth-1}} downto 0);
-    signal stages : matrix_type;
+    signal stages : matrix_type := (others => (others => (others => '0')));
     signal sum    : signed({{w_bitwidth - 1}} downto 0);
     {%- if handshake is true %}
     variable state : state_type := IDLE;

@@ -6,6 +6,7 @@ package TYPE_DEF is
 
 	-- Type Definitions
 	type output is array (natural range <>) of signed({{ o_bitwidth - 1 }} downto 0);
+	{%- if weight_file is true %}
 	{%- if is_serialized is false %}
 	type stored is array (natural range <>) of signed({{ file_bitwidth - 1 }} downto 0);
 	{%- endif %}
@@ -60,5 +61,6 @@ package TYPE_DEF is
 		{%- endfor %}
 	);
 	{%- endif %}
-
+	{%- endif %}
+	
 end TYPE_DEF;

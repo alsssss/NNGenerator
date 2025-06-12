@@ -45,7 +45,7 @@ architecture structure of top is
     signal clk   : bit_t;
     signal rst_s : std_logic;
 
-    signal addr        : halfword_t;
+    signal addr        : std_logic_vector({{ addr_size - 1 }} downto 0);
     signal dataR       : word_t;
     signal dataW       : word_t;
     signal en          : bit_t;
@@ -55,7 +55,7 @@ architecture structure of top is
 
     signal mem_enb     : std_logic;
     signal mem_web     : std_logic;
-    signal mem_addrb   : std_logic_vector(15 downto 0);
+    signal mem_addrb   : std_logic_vector({{ addr_size - 1 }} downto 0);
     signal mem_dib     : std_logic_vector(31 downto 0);
     signal mem_dob     : std_logic_vector(31 downto 0);
     
@@ -108,7 +108,7 @@ begin
         
     process_controller_inst_0: entity work.process_controller
        generic map(
-            MEMORY_ADDR_SIZE=> 16
+            MEMORY_ADDR_SIZE=> {{ addr_size }}
         )
         port map (clk=>clk,
             rst=> rst_s,
@@ -129,7 +129,7 @@ begin
 
     controller_inst_0 : entity work.controller
         generic map(
-            MEMORY_ADDR_SIZE => 16
+            MEMORY_ADDR_SIZE => {{ addr_size }}
         )
         port map(
             clk                => clk,
@@ -165,7 +165,7 @@ begin
 
     memory3_inst_0 : entity work.memory3
         generic map(
-            ADDR_SIZE => 16
+            ADDR_SIZE => {{ addr_size }}
         )
         port map(
             clk   => clk,
