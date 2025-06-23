@@ -182,7 +182,7 @@ begin
         end if;
     end PROCESS;
     {%- elif first_layer is true %}
-    PROCESS(clk, rst)
+    PROCESS(clk, rst, start)
     BEGIN    
         if (rst = '1') then
             released_inputs <= (others => '0');

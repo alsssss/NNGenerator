@@ -463,7 +463,7 @@ begin
         when COPY_OUTPUTS =>
             case layer_count is
             {%- set total_width = data_widths[0] %}
-            {%- for idx in range(1, layer_number ) %}
+            {%- for idx in range(1, layer_number + 1 ) %}
                 when {{ idx - 1 }} =>
                     tmp_connection_in({{ total_width - 1 }} downto {{ total_width - data_widths[idx] }}) := connection_out({{ max_neuron_number - 1 }} downto {{ max_neuron_number - data_widths[idx] }});
             {%- endfor %}
@@ -507,8 +507,12 @@ begin
         {%- endif %}
 
         when TERMINATE => 
-            tmp_last_layer  := '0';
-            tmp_state       := IDLE;
+            tmp_last_layer   := '0';
+            {%- if weight_file is true %}
+            tmp_start_weight := 0;
+            tmp_bias_index   := 0;
+            {%- endif %}
+            tmp_state        := IDLE;
 
         when others =>
             tmp_state := IDLE;
