@@ -1,11 +1,11 @@
 # The output of the Neural Network is
-num 0: -375
-num 1: -1020
-num 2: 91
-num 3: -929
-num 4: 1180
-num 5: -469
-num 6: -466
-num 7: -229
-num 8: -448
-num 9: 237
+num 0: -320
+num 1: -72
+num 2: -123
+num 3: 12
+num 4: -196
+num 5: -271
+num 6: -527
+num 7: 401
+num 8: -117
+num 9: -96
