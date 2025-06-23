@@ -1,0 +1,70 @@
+# ========================== ⬤ USER CONFIGURATION PARAMETERS ==========================
+
+# → When a "-" sign is followed by a value, it means it will be interpreted as a list element.
+
+# → The "with_uart" parameter tells the generator to put all the project files related to uart communication inside the final project folder.
+#   → It is always either true or false.
+
+# → "file_bitwidth" specifies the size in bits of the weights and biases of each neuron, when they are stored as constants("weight_file = true")
+# → The "counter_max" parameter tells the "process_controller" entity how many clock cycles to wait before starting the neural netowork's output retrieval from memory.
+#   → It must always be specified when the "handshake" parameter is set to false, and it is always an integer.
+
+# → The "start_input" parameter allows you to choose the first memory address for the input data coming from the FPGA's UART port
+# → The "start_output" parameter specifies the memory address from which the "process_controller" will start reading the outputs of the net
+#   → Its value must always be less than the last memory address of the memory (2047 in this case)
+
+# → The "THRESHOLD" parameter specifies the value that the "input_loader" entity will use to binarize the input value read from memory
+#   → The inputd data stored in memory is always of type uint8, so it is better to leave this parameter at 0
+
+with_uart: true
+file_bitwidth: 8
+counter_max: 30
+start_input: 0
+start_output: 400
+THRESHOLD: 0
+
+# =========================== ⬤ LAYER CONFIGURATION ===========================
+
+# → If you want a serialized implementation of the network, write "true" in the "is_serialized" field. Write "false" otherwise (fully parallel solution).
+# → Modify "serial_layers" to adjust how many layers will be inferred in hardware.
+# → Modify "layer_reuses" to match how many model layers will be repeated by the corresponding inferred layer.
+# → In case "serial_layers" is 1 (one inferred layer for all the network), simply write "layer_reuses: max" instead of a list.
+# → Be careful not to exceed the total amount of layers stated in the model when writing "layer_reuses"
+#   → (the total sum must be equal to the amount of layers in the net).
+
+# → Modify "serialized_neurons" to specify how many neurons each inferred layer will synthesize in hardware.
+# → In case "serial_layers" is 1, writing "max" as the first element of the list will infer the neurons of the biggest layer in the net
+#   → ("serialized_neurons" must always be a list).
+#     → Writing "max" or explicitly writing the maximum number on neurons of the biggest layer will produce 2 different architectures.
+# → The parameter "serialized_neurons" must have a number of entries equal to the number specified in "serial_layers".
+# → Be careful not to exceed the amount of neurons of the corresponding layers when modifying "serialized_neurons"
+#   → (ex. writing 17 for a layer that is modeled to have 12 neurons is illegal).
+
+# → The "different_files" parameter lets you choose whether to generate a separate .vhd file for each neuron in the network.
+# → The "different_files" parameter should be set to "true" or "false" only when a fully parallel implementation of the network is selected.
+#   → In all other cases, use "null" instead.
+
+# → The "weight_file" parameter lets you choose whether the data for the weights and biases of the net should be stored in constant arrays,
+#   → or have a dedicated memory (BRAM/ROM).
+
+# → The "weight_file" parameter must be set to "true" or "false" only when the "is_serialized" parameter or the "handshake" parameter is set to "true",
+#   → otherwise it must be left to "true".
+#      → true if you want weights as constants, false otherwise
+# → The "handshake" parameter enables neurons and layers to coordinate their execution by signaling when to start and when processing is complete.
+# → Keep "handshake" always "true" when you want to have more than one serialized layer ("serial_layers > 1"),
+#   → or if you want the BRAM block for the weight in your implementation.
+
+is_serialized: false
+
+serial_layers: null
+
+layer_reuses: null
+
+serialized_neurons:
+  - null
+
+different_files: true
+
+weight_file: true
+
+handshake: true
