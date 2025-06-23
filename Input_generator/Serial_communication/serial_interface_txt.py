@@ -49,7 +49,7 @@ clearChar = b'c'
 # Variables
 download_txt = b'0'
 numbers = []
-n_input=784  # Remember to change this for each dataset
+n_input=196  # Remember to change this for each dataset
 
 download_progress = 0
 upload_progress = 0
@@ -239,7 +239,7 @@ def openDownloadFile(button):
             file_content_list.remove('')
 
         # we start with correctness checks
-        if (len(file_content_list) != 787):
+        if (len(file_content_list) != 199):
             app.errorBox("Error!", "The size of the txt file is not correct.")
             return
         if (file_content_list[0] != "txt"):
@@ -620,7 +620,7 @@ def updateEnableDisable():
 
    
 
-    if len(download_txt) != 784:
+    if len(download_txt) != 196:
         download_image_exists = False
     else:
         download_image_exists = True
