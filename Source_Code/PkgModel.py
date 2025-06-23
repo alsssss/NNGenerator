@@ -61,22 +61,6 @@ class PkgModel:
         else:
             flat_list = [int(float(val)) for val in bias_data]
         return [f"to_signed({val}, {bitwidth})" for val in flat_list]
-   
-
-    def pack_8bit_to_32bit_bitvector(data_8bit):
-
-        # Pad with zeros if needed
-        while len(data_8bit) % 4 != 0:
-            data_8bit.append(0)
-
-        packed_bitvectors = []
-        for i in range(0, len(data_8bit), 4):
-            # Convert each byte to 8-bit binary string
-            bits = ''.join(f"{b:08b}" for b in data_8bit[i:i+4])
-            packed_bitvectors.append(bits)
-        return packed_bitvectors
-
-
 
 
     def generate_vhdl(self, template_dir, template_file, output_dir, output_file):
