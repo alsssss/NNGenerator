@@ -57,7 +57,7 @@ class Manager:
 
 
 
-    def __init__(self, filename, final_dir):
+    def __init__(self):
 
         here = os.path.dirname(os.path.abspath(__file__))  
         parent_dir = os.path.join(here, os.pardir)  
@@ -79,18 +79,19 @@ class Manager:
         self.json_dir = json_dir
         self.ONNX_dir = ONNX_dir
         self.synth_dir = synth_dir
-        self.final_dir = os.path.join(results_dir, final_dir) 
+        
         self.activations = [                          
             'Relu', 'Sigmoid', 'Tanh', 'Softmax', 'LeakyRelu',
             'Elu', 'Selu', 'PRelu', 'ThresholdedRelu'
         ]      # I'll leave this here in case of future developments
 
-        self.prepare_folder(self.final_dir)
-
-        parser = ModelParser(self.ONNX_dir, filename)
+        parser = ModelParser(self.ONNX_dir)
         parser.parser()
         parser.hyperM_function()
         self.onnx_dict = parser.model
+        self.final_dir = os.path.join(results_dir, self.onnx_dict["folder_name"]) 
+        self.prepare_folder(self.final_dir)
+
         self.onnx_dict["different_neurons"] = True
 #* ==>        self.onnx_dict["handshake"] = True
         if self.onnx_dict["handshake"] is True:
@@ -1088,16 +1089,16 @@ class Manager:
 
 def main():
     #Modify this to produce new networks 
-    output_dir = input("Please enter the desired output directory name (default is 'New_network'): ") or "New_network" # Remember this is inside the result folder
+#  =>  output_dir = input("Please enter the desired output directory name (default is 'New_network'): ") or "New_network" # Remember this is inside the result folder
     # Here it accepts the Modify the name of the ONNX file to load 
 #    onnx_file_name = "dense_bam_large_debug.onnx"          # Generic test sample for multi-layer network
  #   onnx_file_name = "dense_bam.onnx"                # 28x28 Mnist samples
 #    onnx_file_name = "dense_bam_tiny.onnx" 
-    onnx_file_name = "dense_bam_8x8_trained.onnx"     # 8x8 Mnist sample
+#   onnx_file_name = "dense_bam_8x8_trained.onnx"     # 8x8 Mnist sample
 #    onnx_file_name = "dense_bam_14x14_trained.onnx"  # 14x14 Mnist sample
 #    onnx_file_name = "dense_bam_large.onnx"     #Multiple layers
 
-    manager = Manager(onnx_file_name, output_dir) 
+    manager = Manager() 
     
     layers = manager.create_layers_dict()
     neurons = manager.create_neurons_dict()
