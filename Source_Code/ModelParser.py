@@ -6,9 +6,9 @@ from onnx import numpy_helper
 from onnx import shape_inference
 
 class ModelParser:
-    def __init__(self, model_dir, model_file):
+    def __init__(self, model_dir):
         self.dir = model_dir
-        self.file = model_file
+
         self.model={}
 
     
@@ -17,7 +17,11 @@ class ModelParser:
         network_details = {}
         NN_model={}
         # Load the ONNX model
-        model = onnx.load(self.dir + "\\" + self.file)
+
+        with open('json_files/user_config.yaml', "r") as f:
+            file = yaml.safe_load(f)
+        file = file["onnx_file_name"]
+        model = onnx.load(self.dir + "\\" + file)
         model = onnx.shape_inference.infer_shapes(model)
 
         # Extract graph nodes and initializers

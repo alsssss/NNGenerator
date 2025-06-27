@@ -16,6 +16,8 @@
 # → The "THRESHOLD" parameter specifies the value that the "input_loader" entity will use to binarize the input value read from memory
 #   → The inputd data stored in memory is always of type uint8, so it is better to leave this parameter at 0
 
+folder_name: giu
+onnx_file_name: dense_bam_14x14_trained.onnx
 with_uart: true
 file_bitwidth: 8
 counter_max: 30
@@ -63,7 +65,7 @@ layer_reuses: null
 serialized_neurons:
   - null
 
-different_files: true
+different_files: false
 
 weight_file: true
 
